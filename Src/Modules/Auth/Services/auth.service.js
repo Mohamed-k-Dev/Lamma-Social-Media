@@ -2,7 +2,6 @@ import User from "../../../DB/Models/User.model.js";
 import { encrypt } from "../../../Utils/encryption.utils.js";
 import { emitter } from "../../../Service/sendEmail.service.js";
 import { html } from "../../../Utils/html.utils.js";
-import { mailAttachmentsHandler } from "../../../Utils/mailAttachments.utils.js";
 import { v4 as uuidv4 } from "uuid";
 import BlackListedTokens from "../../../DB/Models/blackListedTokens.model.js";
 import { sendSuccessResponse } from "../../../Utils/ApiResponse.js";
@@ -43,11 +42,6 @@ export const signUp = async (req, res, next) => {
       otp,
       operation: "verify your account",
     }),
-    attachments: [
-      mailAttachmentsHandler("Mohamed_Khaled_Backend.pdf"),
-      mailAttachmentsHandler("Sarahah.md"),
-      mailAttachmentsHandler("bank2.png"),
-    ],
   });
 
   await User.create({
@@ -280,11 +274,6 @@ export const forgetPassword = async (req, res, next) => {
       otp: forgetOtp,
       operation: "forget password",
     }),
-    attachments: [
-      mailAttachmentsHandler("Mohamed_Khaled_Backend.pdf"),
-      mailAttachmentsHandler("Sarahah.md"),
-      mailAttachmentsHandler("bank2.png"),
-    ],
   });
 
   sendSuccessResponse({
@@ -320,7 +309,3 @@ export const resetPassword = async (req, res, next) => {
     message: "Password updated successfully",
   });
 };
-
-
-
-
