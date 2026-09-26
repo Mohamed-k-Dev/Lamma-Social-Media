@@ -1,7 +1,10 @@
 import User from "../../../DB/Models/User.model.js";
 import BlackListedTokens from "../../../DB/Models/blackListedTokens.model.js";
 import { compareSync, hashSync } from "bcrypt";
-import { sendSuccessResponse } from "../../../Utils/ApiResponse.js";
+import {
+  errorResponse,
+  sendSuccessResponse,
+} from "../../../Utils/response/ApiResponse.js";
 import uploadImage, {
   deleteMultipleUploadedImages,
   deleteUploadedImage,
@@ -21,13 +24,21 @@ export const updatePassword = async (req, res, next) => {
   const { oldPassword, newPassword, confirmPassword } = req.body;
 
   if (newPassword !== confirmPassword) {
-    return next(new Error("Passwords do not match"));
+    return errorResponse({
+      res,
+      message: "Password doesn't match",
+      status: 400,
+    });
   }
   const user = await User.findById(req.authUser._id);
 
   const isPasswordMatch = compareSync(oldPassword, user.password);
   if (!isPasswordMatch) {
-    return next(new Error("in-correct old password"));
+    return errorResponse({
+      res,
+      message: "Old password is incorrect",
+      status: 400,
+    });
   }
 
   const hashedPassword = hashSync(newPassword, +process.env.SALT);
@@ -88,9 +99,10 @@ export const uploadProfileImage = async (req, res) => {
     { image: { url: cloudinary.secure_url, public_id: cloudinary.public_id } },
     { new: true }
   );
-  res.json({
+  sendSuccessResponse({
+    res,
     message: "Profile image uploaded successfully",
-    data: updatedUser,
+    data: { user: updatedUser },
   });
 };
 
@@ -120,8 +132,9 @@ export const uploadProfileImages = async (req, res) => {
     { coverImages: coverImageUrls },
     { new: true }
   );
-  res.json({
-    message: "cover images uploaded successfully",
-    data: updatedUser,
+  sendSuccessResponse({
+    res,
+    message: "Cover images uploaded successfully",
+    data: { user: updatedUser },
   });
 };

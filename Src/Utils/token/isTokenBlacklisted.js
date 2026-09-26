@@ -1,4 +1,4 @@
-import BlackListedTokens from "../DB/Models/blackListedTokens.model.js";
+import BlackListedTokens from "../../DB/Models/blackListedTokens.model.js";
 
 export async function isTokenBlacklisted(tokenId) {
   const isTokenBlacklisted = await BlackListedTokens.findOne({

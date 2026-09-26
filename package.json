@@ -22,14 +22,13 @@
     "crypto-js": "^4.2.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-async-handler": "^1.2.0",
     "google-auth-library": "^11.0.0",
     "joi": "^18.2.3",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.8.0",
     "multer": "^2.2.0",
-    "nodemailer": "^9.0.3",
-    "resend": "^6.18.0",
-    "uuid": "^14.0.1"
+    "nanoid": "^6.0.1",
+    "npm": "^11.20.0",
+    "resend": "^6.18.0"
   }
 }

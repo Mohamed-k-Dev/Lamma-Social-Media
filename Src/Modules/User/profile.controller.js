@@ -27,19 +27,20 @@ userRouter.get(
   authorizationMiddleware([ADMIN]),
   listUsers
 );
+
 userRouter.get("/profile", authenticationMiddleware, errorHandler(getProfile));
+
 userRouter.patch(
   "/update/password",
   authenticationMiddleware,
   errorHandler(updatePassword)
 );
+
 userRouter.patch(
   "/update/profile",
   authenticationMiddleware,
   errorHandler(updateProfile)
 );
-
-
 
 userRouter.patch(
   "/upload/profile-image",

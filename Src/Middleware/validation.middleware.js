@@ -1,3 +1,5 @@
+import { errorResponse } from "../Utils/response/ApiResponse.js";
+
 export const validationMiddleware = (schema = {}) => {
   return (req, res, next) => {
     const arrOfSchemas = Object.keys(schema);
@@ -5,14 +7,15 @@ export const validationMiddleware = (schema = {}) => {
 
     for (const key of arrOfSchemas) {
       const { error } = schema[key]?.validate(req[key], { abortEarly: false });
-      validationErrors.push(...error?.details || []);
+      validationErrors.push(...(error?.details || []));
     }
 
     if (validationErrors?.length > 0) {
-      return res.status(400).json({
-        success: false,
+      return errorResponse({
+        res,
         message: "Validation error",
-        errors: validationErrors?.map((err) => {
+        status: 400,
+        error: validationErrors?.map((err) => {
           return { message: err?.message, key: err?.context?.key };
         }),
       });

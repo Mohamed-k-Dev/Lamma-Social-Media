@@ -1,2 +1,4 @@
 /node_modules
-/src/Config/.dev.env
+/src/Config/.env.dev
+/Features.md
+/prompt.md

@@ -1,9 +1,10 @@
 import User from "../DB/Models/User.model.js";
-import { verifyAccessToken } from "../Utils/token.js";
-import { getAccessToken } from "../Utils/getAccessToken.js";
-import { isTokenBlacklisted } from "../Utils/isTokenBlacklisted.js";
-import { decryptPhone } from "../Utils/decryptPhone.js";
+import { verifyAccessToken } from "../Utils/token/token.js";
+import { getAccessToken } from "../Utils/token/getAccessToken.js";
+import { isTokenBlacklisted } from "../Utils/token/isTokenBlacklisted.js";
+import { decryptPhone } from "../Utils/security/decryptPhone.js";
 import { errorHandler } from "./errorHandler.middleware.js";
+import { errorResponse } from "../Utils/response/ApiResponse.js";
 
 const excludedFields = {
   password: 0,
@@ -20,17 +21,25 @@ const excludedFields = {
 };
 
 export const authenticationMiddleware = errorHandler(async (req, res, next) => {
-  const accessToken = getAccessToken(req);
+  const accessToken = getAccessToken(req, res);
 
-  const decoded = await verifyAccessToken(accessToken, next);
+  const decoded = await verifyAccessToken(accessToken, res);
   const isAccessTokenBlacklisted = await isTokenBlacklisted(decoded.jti);
   if (isAccessTokenBlacklisted) {
-    throw new Error("Access token is blacklisted", { cause: 401 });
+    errorResponse({
+      res,
+      message: "Access token is blacklisted",
+      status: 401,
+    });
   }
 
   const user = await User.findById(decoded.id, excludedFields);
   if (!user) {
-    throw new Error("User not found", { cause: 404 });
+    errorResponse({
+      res,
+      message: "User not found",
+      status: 404,
+    });
   }
 
   user.phone = decryptPhone(user.phone);
@@ -42,7 +51,11 @@ export const authenticationMiddleware = errorHandler(async (req, res, next) => {
 export const authorizationMiddleware = (roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.authUser.role)) {
-      return next(new Error("Forbidden", { cause: 403 }));
+      return errorResponse({
+        res,
+        message: "You are not authorized",
+        status: 403,
+      });
     }
     next();
   };

@@ -1,31 +1,38 @@
 import User from "../../../DB/Models/User.model.js";
-import { encrypt } from "../../../Utils/encryption.utils.js";
+import { encrypt } from "../../../Utils/security/encryption.utils.js";
 import { emitter } from "../../../Service/sendEmail.service.js";
-import { html } from "../../../Utils/html.utils.js";
-import { v4 as uuidv4 } from "uuid";
+import { html } from "../../../Utils/email/html.utils.js";
+import { nanoid } from "nanoid";
 import BlackListedTokens from "../../../DB/Models/blackListedTokens.model.js";
-import { sendSuccessResponse } from "../../../Utils/ApiResponse.js";
+import {
+  errorResponse,
+  sendSuccessResponse,
+} from "../../../Utils/response/ApiResponse.js";
 import { OAuth2Client } from "google-auth-library";
 import { SYSTEM_PROVIDERS } from "../../../Constants/Constants.js";
-import { findUserByEmail } from "../../../Utils/findUser.js";
-import { compareHashedData, hashData } from "../../../Utils/hash.js";
-import { generateOtp } from "../../../Utils/otp.js";
+import { findUserByEmail } from "../../../Utils/user/findUser.js";
+import { compareHashedData, hashData } from "../../../Utils/security/hash.js";
+import { generateOtp } from "../../../Utils/otp/otp.js";
 import {
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
-} from "../../../Utils/token.js";
+} from "../../../Utils/token/token.js";
 
 export const signUp = async (req, res, next) => {
   const data = req.body;
 
   const isUserExist = await findUserByEmail(data.email);
   if (isUserExist) {
-    return next(new Error("User already exist", { cause: 409 }));
+    return errorResponse({
+      res,
+      message: "User already exist",
+      status: 409,
+    });
   }
 
-  const hashedPassword = await hashData(data.password);
+  const hashedPassword = hashData(data.password);
   const encryptedPhone =
     data.phone &&
     encrypt({
@@ -36,7 +43,7 @@ export const signUp = async (req, res, next) => {
   const { otp, otpExpiration, hashedOtp } = await generateOtp();
   emitter.emit("sendMail", {
     to: data.email,
-    subject: "Welcome to Sarahah",
+    subject: "Welcome to ",
     html: html({
       userName: data.userName,
       otp,
@@ -63,16 +70,28 @@ export const login = async (req, res, next) => {
 
   const user = await findUserByEmail(email);
   if (!user) {
-    return next(new Error("in-correct email or password", { cause: 404 }));
+    return errorResponse({
+      res,
+      message: "in-correct email or password",
+      status: 404,
+    });
   }
 
   const isPasswordMatch = await compareHashedData(password, user.password);
   if (!isPasswordMatch) {
-    return next(new Error("in-correct email or password", { cause: 404 }));
+    return errorResponse({
+      res,
+      message: "in-correct email or password",
+      status: 404,
+    });
   }
 
   if (!user.isVerified) {
-    return next(new Error("Please verify your email", { cause: 403 }));
+    return errorResponse({
+      res,
+      message: "Please verify your email",
+      status: 403,
+    });
   }
 
   const accessToken = await generateAccessToken({
@@ -99,12 +118,20 @@ export const signUpWithGmail = async (req, res, next) => {
   const { email_verified, email, name } = ticket.getPayload();
 
   if (!email_verified) {
-    return next(new Error("Please verify your gmail account", { cause: 403 }));
+    return errorResponse({
+      res,
+      message: "Please verify your email",
+      status: 403,
+    });
   }
 
   const isUserExist = await findUserByEmail(email);
   if (isUserExist) {
-    return next(new Error("User already exist", { cause: 409 }));
+    return errorResponse({
+      res,
+      message: "User already exist",
+      status: 409,
+    });
   }
 
   const payload = await User.create({
@@ -112,7 +139,7 @@ export const signUpWithGmail = async (req, res, next) => {
     userName: name,
     provider: SYSTEM_PROVIDERS.GOOGLE,
     isVerified: true,
-    password: await hashData(uuidv4(), +process.env.SALT),
+    password: hashData(nanoid(), +process.env.SALT),
   });
 
   const accessToken = await generateAccessToken({
@@ -135,7 +162,11 @@ export const signInWithGmail = async (req, res, next) => {
   const payload = ticket.getPayload();
 
   if (!payload.email_verified) {
-    return next(new Error("Please verify your gmail account", { cause: 403 }));
+    return errorResponse({
+      res,
+      message: "Please verify your email",
+      status: 403,
+    });
   }
 
   const user = await User.findOne({
@@ -143,11 +174,11 @@ export const signInWithGmail = async (req, res, next) => {
     provider: SYSTEM_PROVIDERS.GOOGLE,
   });
   if (!user) {
-    return next(
-      new Error("User not found, please sign up using google first", {
-        cause: 404,
-      })
-    );
+    return errorResponse({
+      res,
+      message: "User not found",
+      status: 404,
+    });
   }
 
   const accessToken = await generateAccessToken({
@@ -168,15 +199,27 @@ export const verifyEmail = async (req, res, next) => {
 
   const user = await findUserByEmail(email);
   if (!user) {
-    return next(new Error("User not found", { cause: 404 }));
+    return errorResponse({
+      res,
+      message: "User not found",
+      status: 404,
+    });
   }
 
   const isOtpValid = await compareHashedData(otp, user.otp || "");
   if (!isOtpValid) {
-    return next(new Error("in-correct otp"));
+    return errorResponse({
+      res,
+      message: "in-correct otp",
+      status: 404,
+    });
   }
   if (user.otpExpiration < Date.now()) {
-    return next(new Error("otp expired"));
+    return errorResponse({
+      res,
+      message: "Otp expired",
+      status: 404,
+    });
   }
 
   await User.findOneAndUpdate(
@@ -193,43 +236,65 @@ export const verifyEmail = async (req, res, next) => {
 export const refreshToken = async (req, res, next) => {
   const { refreshtoken } = req.headers;
   if (!refreshtoken) {
-    return next(new Error("Please provide refresh token", { cause: 400 }));
+    return errorResponse({
+      res,
+      message: "Please provide refresh token",
+      status: 400,
+    });
   }
 
-  const decoded = await verifyRefreshToken(refreshtoken);
+  const decoded = await verifyRefreshToken(refreshtoken, res);
+  if (!decoded) {
+    return;
+  }
+
   const isTokenBlacklisted = await BlackListedTokens.findOne({
     tokenId: decoded.jti,
   });
   if (isTokenBlacklisted) {
-    return next(new Error("Token is blacklisted", { cause: 409 }));
+    return errorResponse({
+      res,
+      message: "Refresh token is blacklisted",
+      status: 403,
+    });
   }
 
   const accessToken = await generateAccessToken({
     data: { id: decoded.id, email: decoded.email, role: decoded.role },
   });
 
+  const refreshToken = await generateRefreshToken({
+    data: { id: decoded.id, email: decoded.email, role: decoded.role },
+  });
+
   sendSuccessResponse({
     res,
-    data: { accessToken },
+    data: { accessToken, refreshToken },
   });
 };
 
 export const logout = async (req, res, next) => {
   const { accesstoken, refreshtoken } = req.headers;
   if (!accesstoken || !refreshtoken) {
-    return next(
-      new Error("Please provide access and refresh token", { cause: 400 })
-    );
+    return errorResponse({
+      res,
+      message: "Please provide access token and refresh token",
+      status: 400,
+    });
   }
 
-  const decodedAccess = await verifyAccessToken(accesstoken);
-  const decodedRefresh = await verifyRefreshToken(refreshtoken);
+  const decodedAccess = await verifyAccessToken(accesstoken, res);
+  const decodedRefresh = await verifyRefreshToken(refreshtoken, res);
 
   const isTokenBlacklisted = await BlackListedTokens.findOne({
     tokenId: { $in: [decodedAccess.jti, decodedRefresh.jti] },
   });
   if (isTokenBlacklisted) {
-    return next(new Error("Token is blacklisted", { cause: 409 }));
+    return errorResponse({
+      res,
+      message: "Access token is blacklisted",
+      status: 403,
+    });
   }
 
   await BlackListedTokens.insertMany([
@@ -253,7 +318,11 @@ export const forgetPassword = async (req, res, next) => {
   const { email } = req.body;
   const user = await findUserByEmail(email);
   if (!user) {
-    return next(new Error("User not found", { cause: 404 }));
+    return errorResponse({
+      res,
+      message: "User not found",
+      status: 404,
+    });
   }
 
   const {
@@ -286,17 +355,29 @@ export const resetPassword = async (req, res, next) => {
   const { email, password, otp } = req.body;
   const user = await findUserByEmail(email);
   if (!user) {
-    return next(new Error("User not found", { cause: 404 }));
+    return errorResponse({
+      res,
+      message: "User not found",
+      status: 404,
+    });
   }
-  const isOtpValid = await compareHashedData(otp, user.forgetOtp || "");
+  const isOtpValid = compareHashedData(otp, user.forgetOtp || "");
   if (!isOtpValid) {
-    return next(new Error("in-correct otp"));
+    return errorResponse({
+      res,
+      message: "in-correct otp",
+      status: 404,
+    });
   }
   if (user.forgetOtpExpiration < Date.now()) {
-    return next(new Error("Otp expired"));
+    return errorResponse({
+      res,
+      message: "Otp expired",
+      status: 404,
+    });
   }
 
-  const hashedPassword = await hashData(password);
+  const hashedPassword = hashData(password);
   await User.findOneAndUpdate(
     { email },
     {
